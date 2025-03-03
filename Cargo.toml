@@ -7,7 +7,7 @@ edition = "2021"
 
 [workspace]
 resolver = "2"
-members = ["moex_api"]
+members = [ "history_model","moex_api"]
 
 [dependencies]
 axum = "0.8.1"

@@ -1,30 +1,28 @@
-extern crate env_logger;
 use moex_api::api::MoexAPI;
 use serde_json::json;
 use tower_http::trace::TraceLayer;
 
 use axum::{extract::Path, routing::get, Json, Router};
 
+mod utils;
+
 static MOEX_API: std::sync::LazyLock<MoexAPI> = std::sync::LazyLock::new(|| MoexAPI::new());
 
-fn sanitize_ticker(ticker: String) -> String {
-    return ticker
-        .chars()
-        .take(20)
-        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
-        .collect();
-}
-
 async fn get_ticker_moex(Path(ticker): Path<String>) -> Json<serde_json::Value> {
-    if let Ok(history) = MOEX_API.get_ticker(&(sanitize_ticker(ticker))).await {
+    let sanitized_ticker = utils::sanitize_ticker(ticker);
+    if let Ok(history) = MOEX_API.get_ticker(&sanitized_ticker).await {
         return Json(json!(history));
     }
-    return Json(json!({"error": "something went wrong"}));
+    Json(json!({"error": "something went wrong"}))
+}
+
+async fn healthcheck() -> Json<serde_json::Value> {
+    Json(json!({"status": "ok"}))
 }
 
 #[tokio::main]
 async fn main() {
-    // logger
+    // // logger
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -38,6 +36,7 @@ async fn main() {
     // app
     let app = Router::new()
         .route("/moex/{ticker}", get(get_ticker_moex))
+        .route("/healthcheck", get(healthcheck))
         .layer(TraceLayer::new_for_http());
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")

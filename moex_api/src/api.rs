@@ -1,9 +1,9 @@
 use chrono::NaiveDate;
-use serde::{Deserialize, Serialize};
-use std::fmt;
-extern crate env_logger;
+use history_model::HistoryEntry;
 use log::debug;
+use serde::{Deserialize, Serialize};
 use std::error::Error;
+use std::fmt;
 
 const DEFAULT_PAGE_SIZE: i64 = 100;
 const MOEX_BASE_API_URL: &str = "https://iss.moex.com";
@@ -256,14 +256,4 @@ struct HistoryCursor {
 struct HistoryEntriesMoexMeta {
     history: Vec<HistoryEntry>,
     meta: HistoryCursor,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct HistoryEntry {
-    date: NaiveDate,
-    close: f64,
-    high: f64,
-    low: f64,
-    volume: i64,
-    facevalue: i64,
 }
