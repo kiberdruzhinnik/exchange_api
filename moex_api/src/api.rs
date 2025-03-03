@@ -1,6 +1,8 @@
 use chrono::NaiveDate;
 use history_model::HistoryEntry;
-use log::debug;
+use log::{debug, info};
+use redis::aio::MultiplexedConnection;
+use redis::{AsyncCommands, JsonAsyncCommands};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt;
@@ -63,49 +65,20 @@ struct Marketdata {
     data: Vec<Vec<serde_json::Value>>,
 }
 
+#[derive(Clone)]
 pub struct MoexAPI {
     base_url: &'static str,
     client: reqwest::Client,
+    redis_client: redis::Client,
 }
 
 impl MoexAPI {
-    pub fn new() -> Self {
+    pub fn new(redis_client: redis::Client) -> Self {
         return MoexAPI {
             base_url: MOEX_BASE_API_URL,
             client: reqwest::Client::new(),
+            redis_client: redis_client,
         };
-    }
-
-    async fn get_security_parameters(
-        &self,
-        ticker: &str,
-    ) -> Result<MoexSecurityParameters, Box<dyn Error>> {
-        let url = format!(
-            "{}/iss/securities/{}.json?iss.only=boards&iss.meta=off&boards.columns=boardid,market,engine,is_primary",
-            self.base_url, ticker
-        );
-
-        debug!("get_security_parameters url: {}", url);
-
-        let moex_json = self
-            .client
-            .get(&url)
-            .send()
-            .await?
-            .json::<MoexSecurityParametersJSON>()
-            .await?;
-
-        for entry in moex_json.boards.data {
-            if entry.3 == 1 {
-                return Ok(MoexSecurityParameters {
-                    board: entry.0,
-                    market: entry.1,
-                    engine: entry.2,
-                });
-            }
-        }
-
-        Err(Box::new(CustomError::NotFound))
     }
 
     pub async fn get_ticker(&self, ticker: &str) -> Result<Vec<HistoryEntry>, Box<dyn Error>> {
@@ -128,6 +101,55 @@ impl MoexAPI {
         }
 
         Ok(history)
+    }
+
+    async fn get_security_parameters(
+        &self,
+        ticker: &str,
+    ) -> Result<MoexSecurityParameters, Box<dyn Error>> {
+        let url = format!(
+            "{}/iss/securities/{}.json?iss.only=boards&iss.meta=off&boards.columns=boardid,market,engine,is_primary",
+            self.base_url, ticker
+        );
+
+        debug!("get_security_parameters url: {}", url);
+
+        info!("trying to get cached parameters for key {}", url);
+        let mut con = self.redis_client.get_multiplexed_async_connection().await?;
+        if con.exists(&url).await? {
+            let cached_params_str: String = con.get(&url).await?;
+            let cached_param: MoexSecurityParameters = serde_json::from_str(&cached_params_str)?;
+            return Ok(cached_param);
+        }
+
+        info!("Cache miss, fetching from url {}", url);
+
+        let moex_json = self
+            .client
+            .get(&url)
+            .send()
+            .await?
+            .json::<MoexSecurityParametersJSON>()
+            .await?;
+
+        for entry in moex_json.boards.data {
+            if entry.3 == 1 {
+                let params = MoexSecurityParameters {
+                    board: entry.0,
+                    market: entry.1,
+                    engine: entry.2,
+                };
+
+                info!("Fetched successfully, putting to cache");
+
+                let serialized = serde_json::to_string(&params)?;
+                con.set(&url, &serialized).await?;
+
+                return Ok(params);
+            }
+        }
+
+        Err(Box::new(CustomError::NotFound))
     }
 
     async fn get_security_current_price(
@@ -190,9 +212,19 @@ impl MoexAPI {
 
         debug!("get_security_history_offset url: {}", url);
 
+        let mut con = self.redis_client.get_multiplexed_async_connection().await?;
+        if offset == DEFAULT_PAGE_SIZE {
+            info!("trying to get cached data for key {}", url);
+            if con.exists(&url).await? {
+                let cached: String = con.get(&url).await?;
+                let cached_data: HistoryEntriesMoexMeta = serde_json::from_str(&cached)?;
+                return Ok(cached_data);
+            }
+        }
+
         let json = self
             .client
-            .get(url)
+            .get(&url)
             .send()
             .await?
             .json::<MoexHistoryJSON>()
@@ -224,7 +256,15 @@ impl MoexAPI {
             })
         }
 
-        Ok(HistoryEntriesMoexMeta { history, meta })
+        let out = HistoryEntriesMoexMeta { history, meta };
+
+        if offset == DEFAULT_PAGE_SIZE {
+            info!("Fetched successfully, putting to cache");
+            let serialized = serde_json::to_string(&out)?;
+            con.set(&url, &serialized).await?;
+        }
+
+        Ok(out)
     }
 }
 

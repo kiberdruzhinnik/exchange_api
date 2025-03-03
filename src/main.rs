@@ -1,46 +1,56 @@
+use log::{error, info};
 use moex_api::api::MoexAPI;
-use serde_json::json;
-use tower_http::trace::TraceLayer;
+use redis::ConnectionLike;
+use serde::Serialize;
+use std::{env, process::exit};
 
-use axum::{extract::Path, routing::get, Json, Router};
+use actix_web::{get, middleware::Logger, web, App, HttpServer, Responder};
 
 mod utils;
 
-static MOEX_API: std::sync::LazyLock<MoexAPI> = std::sync::LazyLock::new(|| MoexAPI::new());
+#[derive(Serialize)]
+struct HealthcheckResponse {
+    status: String,
+}
 
-async fn get_ticker_moex(Path(ticker): Path<String>) -> Json<serde_json::Value> {
-    let sanitized_ticker = utils::sanitize_ticker(ticker);
-    if let Ok(history) = MOEX_API.get_ticker(&sanitized_ticker).await {
-        return Json(json!(history));
+#[get("/moex/{ticker}")]
+async fn get_ticker_moex(ticker: web::Path<String>, api: web::Data<MoexAPI>) -> impl Responder {
+    let sanitized_ticker = utils::sanitize_ticker(ticker.to_string());
+    if let Ok(history) = api.get_ticker(&sanitized_ticker).await {
+        return web::Json(history);
     }
-    Json(json!({"error": "something went wrong"}))
+    web::Json(vec![])
 }
 
-async fn healthcheck() -> Json<serde_json::Value> {
-    Json(json!({"status": "ok"}))
+#[get("/healthcheck")]
+async fn healthcheck() -> impl Responder {
+    web::Json(HealthcheckResponse {
+        status: "ok".to_string(),
+    })
 }
 
-#[tokio::main]
-async fn main() {
-    // // logger
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .or_else(|_| {
-                    tracing_subscriber::EnvFilter::try_new("exchange_api=error,tower_http=warn")
-                })
-                .unwrap(),
-        )
-        .init();
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    // app
-    let app = Router::new()
-        .route("/moex/{ticker}", get(get_ticker_moex))
-        .route("/healthcheck", get(healthcheck))
-        .layer(TraceLayer::new_for_http());
+    // create redis connection
+    let redis_url = env::var("REDIS_URL").expect("REDIS_URL must be set in the environment");
+    let mut redis_client = redis::Client::open(redis_url).expect("Failed to create Redis client");
+    let redis_connected = redis_client.check_connection();
+    if !redis_connected {
+        error!("Redis unavailable");
+        exit(1);
+    }
+    info!("Redis connected");
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
-        .await
-        .unwrap();
-    axum::serve(listener, app).await.unwrap();
+    HttpServer::new(move || {
+        App::new()
+            .app_data(web::Data::new(MoexAPI::new(redis_client.clone())))
+            .service(healthcheck)
+            .service(get_ticker_moex)
+            .wrap(Logger::default())
+    })
+    .bind(("127.0.0.1", 8080))?
+    .run()
+    .await
 }
