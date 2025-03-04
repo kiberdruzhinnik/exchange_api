@@ -56,7 +56,8 @@ async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     // create redis connection
-    let redis_url = env::var("REDIS_URL").expect("REDIS_URL must be set in the environment");
+    let redis_url = env::var("EXCHANGE_API_REDIS")
+        .expect("EXCHANGE_API_REDIS must be set with valid REDIS url");
     let mut redis_client = redis::Client::open(redis_url).expect("Failed to create Redis client");
     let redis_connected = redis_client.check_connection();
     if !redis_connected {
@@ -72,6 +73,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(CbrAPI::new()))
             .service(healthcheck)
             .service(get_ticker_moex)
+            .service(get_ticker_spbex)
+            .service(get_ticker_cbr)
             .wrap(Logger::default())
     })
     .bind(("127.0.0.1", 8080))?

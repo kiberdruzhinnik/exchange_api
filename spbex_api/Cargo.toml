@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono = { version = "0.4.40", features = ["serde"] }
+itertools = "0.14.0"
+log = "0.4.26"
+reqwest = { version = "0.12.9", features = ["json"] }
+serde = "1.0.218"
+serde_json = "1.0.139"
 
 # local
 history_model = { path = "../history_model" }
