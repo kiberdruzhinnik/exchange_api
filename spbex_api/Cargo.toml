@@ -1,0 +1,9 @@
+[package]
+name = "spbex_api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+# local
+history_model = { path = "../history_model" }
