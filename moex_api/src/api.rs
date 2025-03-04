@@ -1,8 +1,7 @@
 use chrono::NaiveDate;
 use history_model::HistoryEntry;
-use log::{debug, info};
-use redis::aio::MultiplexedConnection;
-use redis::{AsyncCommands, JsonAsyncCommands};
+use log::debug;
+use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt;
@@ -77,18 +76,23 @@ impl MoexAPI {
         return MoexAPI {
             base_url: MOEX_BASE_API_URL,
             client: reqwest::Client::new(),
-            redis_client: redis_client,
+            redis_client,
         };
     }
 
     pub async fn get_ticker(&self, ticker: &str) -> Result<Vec<HistoryEntry>, Box<dyn Error>> {
-        let params = self.get_security_parameters(&ticker).await?;
+        let mut redis_con = self.redis_client.get_multiplexed_async_connection().await?;
+
+        let params = self
+            .get_security_parameters(&ticker, &mut redis_con)
+            .await?;
         let mut total = DEFAULT_PAGE_SIZE;
         let mut offset: i64 = 0;
         let mut history = Vec::new();
+
         while offset < total {
             let entry_history = self
-                .get_security_history_offset(&ticker, &params, offset)
+                .get_security_history_offset(&ticker, &params, offset, &mut redis_con)
                 .await?;
             total = entry_history.meta.total;
             offset += entry_history.meta.page_size;
@@ -106,23 +110,23 @@ impl MoexAPI {
     async fn get_security_parameters(
         &self,
         ticker: &str,
+        redis_con: &mut redis::aio::MultiplexedConnection,
     ) -> Result<MoexSecurityParameters, Box<dyn Error>> {
         let url = format!(
             "{}/iss/securities/{}.json?iss.only=boards&iss.meta=off&boards.columns=boardid,market,engine,is_primary",
             self.base_url, ticker
         );
 
-        debug!("get_security_parameters url: {}", url);
+        debug!("get_security_parameters | url: {}", url);
 
-        info!("trying to get cached parameters for key {}", url);
-        let mut con = self.redis_client.get_multiplexed_async_connection().await?;
-        if con.exists(&url).await? {
-            let cached_params_str: String = con.get(&url).await?;
+        if redis_con.exists(&url).await? {
+            debug!("get_security_parameters | cache hit | key: {}", url);
+            let cached_params_str: String = redis_con.get(&url).await?;
             let cached_param: MoexSecurityParameters = serde_json::from_str(&cached_params_str)?;
             return Ok(cached_param);
         }
 
-        info!("Cache miss, fetching from url {}", url);
+        debug!("get_security_parameters | cache miss | url: {}", url);
 
         let moex_json = self
             .client
@@ -140,10 +144,9 @@ impl MoexAPI {
                     engine: entry.2,
                 };
 
-                info!("Fetched successfully, putting to cache");
-
+                debug!("get_security_parameters | saving to cache");
                 let serialized = serde_json::to_string(&params)?;
-                con.set(&url, &serialized).await?;
+                let _: () = redis_con.set(&url, &serialized).await?;
 
                 return Ok(params);
             }
@@ -162,7 +165,7 @@ impl MoexAPI {
             self.base_url, params.engine, params.market, ticker
         );
 
-        debug!("get_security_current_price url: {}", url);
+        debug!("get_security_current_price | url: {}", url);
 
         let json = self
             .client
@@ -204,23 +207,23 @@ impl MoexAPI {
         ticker: &str,
         params: &MoexSecurityParameters,
         offset: i64,
+        redis_con: &mut redis::aio::MultiplexedConnection,
     ) -> Result<HistoryEntriesMoexMeta, Box<dyn Error>> {
         let url = format!(
                     "{}/iss/history/engines/{}/markets/{}/boards/{}/securities/{}.json?iss.meta=off&start={}&history.columns=TRADEDATE,CLOSE,HIGH,LOW,VOLUME,FACEVALUE",
                     self.base_url, params.engine, params.market, params.board, ticker, offset
                 );
 
-        debug!("get_security_history_offset url: {}", url);
+        debug!("get_security_history_offset | url: {}", url);
 
-        let mut con = self.redis_client.get_multiplexed_async_connection().await?;
-        if offset == DEFAULT_PAGE_SIZE {
-            info!("trying to get cached data for key {}", url);
-            if con.exists(&url).await? {
-                let cached: String = con.get(&url).await?;
-                let cached_data: HistoryEntriesMoexMeta = serde_json::from_str(&cached)?;
-                return Ok(cached_data);
-            }
+        if redis_con.exists(&url).await? {
+            debug!("get_security_history_offset | cache hit | key: {}", url);
+            let cached: String = redis_con.get(&url).await?;
+            let cached_data: HistoryEntriesMoexMeta = serde_json::from_str(&cached)?;
+            return Ok(cached_data);
         }
+
+        debug!("get_security_history_offset | cache miss | url: {}", url);
 
         let json = self
             .client
@@ -242,7 +245,9 @@ impl MoexAPI {
                 NaiveDate::parse_from_str(entry[0].as_str().unwrap_or_default(), "%Y-%m-%d")?;
             // handle obligations
             let facevalue = match entry.len() {
+                // if FACEVALUE exists then len is 6, so we need to handle it
                 6 => entry[5].as_i64().unwrap_or(1),
+                // otherwise set 1
                 _ => 1,
             };
 
@@ -258,10 +263,10 @@ impl MoexAPI {
 
         let out = HistoryEntriesMoexMeta { history, meta };
 
-        if offset == DEFAULT_PAGE_SIZE {
-            info!("Fetched successfully, putting to cache");
+        if out.history.len() != 0 && out.history.len() as i64 % out.meta.page_size == 0 {
+            debug!("get_security_parameters | saving to cache");
             let serialized = serde_json::to_string(&out)?;
-            con.set(&url, &serialized).await?;
+            let _: () = redis_con.set(&url, &serialized).await?;
         }
 
         Ok(out)
