@@ -1,0 +1,18 @@
+services:
+  redis-cache:
+    image: mirror.gcr.io/redis:7-alpine
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli ping | grep PONG" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  exchange_api:
+    image: docker.io/library/exchange_api
+    environment:
+      EXCHANGE_API_REDIS: redis://redis-cache:6379
+    ports:
+      - 8080:8080/tcp
+    depends_on:
+      - redis-cache
