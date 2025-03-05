@@ -163,6 +163,7 @@ impl MoexAPI {
         // handle indexes like MOEX
         let last_column = match params.board.as_str() {
             "SNDX" => "CURRENTVALUE",
+            "MMIX" => "CURRENTVALUE",
             _ => "LAST",
         };
 
