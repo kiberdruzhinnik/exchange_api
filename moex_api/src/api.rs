@@ -160,9 +160,15 @@ impl MoexAPI {
         ticker: &str,
         params: &MoexSecurityParameters,
     ) -> Result<HistoryEntry, Box<dyn Error>> {
+        // handle indexes like MOEX
+        let last_column = match params.board.as_str() {
+            "SNDX" => "CURRENTVALUE",
+            _ => "LAST",
+        };
+
         let url = format!(
-            "{}/iss/engines/{}/markets/{}/securities/{}.json?iss.meta=off&iss.only=marketdata&marketdata.columns=BOARDID,LAST,HIGH,LOW,VOLTODAY",
-            self.base_url, params.engine, params.market, ticker
+            "{}/iss/engines/{}/markets/{}/securities/{}.json?iss.meta=off&iss.only=marketdata&marketdata.columns=BOARDID,{},HIGH,LOW,VOLTODAY",
+            self.base_url, params.engine, params.market, ticker, last_column
         );
 
         debug!("get_security_current_price | url: {}", url);
