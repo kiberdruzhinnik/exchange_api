@@ -249,6 +249,7 @@ impl MoexAPI {
         for entry in json.history.data {
             let date =
                 NaiveDate::parse_from_str(entry[0].as_str().unwrap_or_default(), "%Y-%m-%d")?;
+
             // handle obligations
             let facevalue = match entry.len() {
                 // if FACEVALUE exists then len is 6, so we need to handle it
@@ -257,12 +258,18 @@ impl MoexAPI {
                 _ => 1,
             };
 
+            // handle currencies
+            let volume = match entry.len() {
+                1..5 => 0,
+                _ => entry[4].as_i64().unwrap_or_default(),
+            };
+
             history.push(HistoryEntry {
                 date,
                 close: entry[1].as_f64().unwrap_or_default(),
                 high: entry[2].as_f64().unwrap_or_default(),
                 low: entry[3].as_f64().unwrap_or_default(),
-                volume: entry[4].as_i64().unwrap_or_default(),
+                volume,
                 facevalue,
             })
         }
