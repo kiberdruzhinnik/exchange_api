@@ -55,6 +55,9 @@ async fn healthcheck() -> impl Responder {
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
+    let workers_str = env::var("EXCHANGE_API_WORKERS").unwrap_or("2".to_string());
+    let workers: usize = workers_str.parse().unwrap_or(2);
+
     // create redis connection
     let redis_url = env::var("EXCHANGE_API_REDIS")
         .expect("EXCHANGE_API_REDIS must be set with valid REDIS url");
@@ -66,11 +69,15 @@ async fn main() -> std::io::Result<()> {
     }
     info!("Redis connected");
 
+    let moex_api = web::Data::new(MoexAPI::new(redis_client));
+    let spbex_api = web::Data::new(SpbexAPI::new());
+    let cbr_api = web::Data::new(CbrAPI::new());
+
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(MoexAPI::new(redis_client.clone())))
-            .app_data(web::Data::new(SpbexAPI::new()))
-            .app_data(web::Data::new(CbrAPI::new()))
+            .app_data(moex_api.clone())
+            .app_data(spbex_api.clone())
+            .app_data(cbr_api.clone())
             .service(healthcheck)
             .service(get_ticker_moex)
             .service(get_ticker_spbex)
@@ -78,6 +85,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::default())
     })
     .bind(("0.0.0.0", 8080))?
+    .workers(workers)
     .run()
     .await
 }
