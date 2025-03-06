@@ -12,6 +12,7 @@ services:
     image: docker.io/library/exchange_api
     environment:
       EXCHANGE_API_REDIS: redis://redis-cache:6379
+      EXCHANGE_API_WORKERS: 1
     ports:
       - 8080:8080/tcp
     depends_on:

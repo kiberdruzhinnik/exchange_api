@@ -1,4 +1,4 @@
-FROM mirror.gcr.io/rust:1 as builder
+FROM mirror.gcr.io/rust:1 AS builder
 WORKDIR /src/app
 COPY . /src/app
 RUN cargo build --release
