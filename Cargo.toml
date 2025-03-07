@@ -5,16 +5,18 @@ members = [
     "crates/cbr_api",
     "crates/exchange_api_bin",
     "crates/history_model",
+    "crates/healthcheck_bin",
     "crates/moex_api",
     "crates/spbex_api",
 ]
-default-members = ["crates/exchange_api_bin"]
+default-members = ["crates/exchange_api_bin", "crates/healthcheck_bin"]
 resolver = "3"
 
 [workspace.dependencies]
 cbr_api = { path = "crates/cbr_api" }
-exchange_api_bin = { path = "crates/exchange_api_bin "}
+exchange_api_bin = { path = "crates/exchange_api_bin " }
 history_model = { path = "crates/history_model" }
+healthcheck = { path = "crates/healthcheck_bin" }
 moex_api = { path = "crates/moex_api" }
 spbex_api = { path = "crates/spbex_api" }
 
