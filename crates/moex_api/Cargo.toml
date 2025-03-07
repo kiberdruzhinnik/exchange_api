@@ -1,7 +1,7 @@
 [package]
 name = "moex_api"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
 chrono = { version = "0.4.40", features = ["serde"] }
@@ -12,4 +12,4 @@ serde = "1.0.218"
 serde_json = "1.0.139"
 
 # local
-history_model = { path = "../history_model" }
+history_model.workspace = true
