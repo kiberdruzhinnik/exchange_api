@@ -22,9 +22,6 @@ on:
 permissions:
   contents: read
 
-permissions:
-  contents: read
-
 jobs:
   semgrep:
     # User definable name of this GitHub Actions job.
