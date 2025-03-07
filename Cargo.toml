@@ -9,6 +9,11 @@ edition = "2021"
 members = ["cbr_api", "history_model", "moex_api", "spbex_api"]
 resolver = "2"
 
+[profile.release-optimized]
+inherits = "release"
+lto = true
+opt-level = 3
+
 [dependencies]
 actix-web = "4"
 env_logger = "0.11.6"
