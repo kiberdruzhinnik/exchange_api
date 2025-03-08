@@ -32,13 +32,13 @@ jobs:
 
       - name: Build an image from Dockerfile
         run: |
-          docker build -t exchange_api:${{ github.sha }} -f Dockerfile .
-          docker build -t exchange_api_trivy:${{ github.sha }} -f Dockerfile.trivy .
+          docker build -t docker.io/library/exchange_api:${{ github.sha }} -f Dockerfile .
+          docker build -t docker.io/library/exchange_api_trivy:${{ github.sha }} -f Dockerfile.trivy .
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0
         with:
-          image-ref: "exchange_api_trivy:${{ github.sha }}"
+          image-ref: "docker.io/library/exchange_api_trivy:${{ github.sha }}"
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"

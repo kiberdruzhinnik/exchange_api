@@ -1,2 +1,2 @@
-FROM exchange_api:latest
+FROM docker.io/library/exchange_api:latest
 COPY Cargo.lock /app
