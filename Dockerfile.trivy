@@ -1,2 +1,3 @@
-FROM docker.io/library/exchange_api:latest
+ARG IMAGE_VERSION=latest
+FROM docker.io/library/exchange_api:${IMAGE_VERSION}
 COPY Cargo.lock /app
