@@ -1,0 +1,2 @@
+FROM exchange_api:latest
+COPY Cargo.lock /app
