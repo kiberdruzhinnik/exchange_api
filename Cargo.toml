@@ -14,7 +14,7 @@ resolver = "3"
 
 [workspace.dependencies]
 cbr_api = { path = "crates/cbr_api" }
-exchange_api_bin = { path = "crates/exchange_api_bin " }
+exchange_api_bin = { path = "crates/exchange_api_bin" }
 history_model = { path = "crates/history_model" }
 healthcheck = { path = "crates/healthcheck_bin" }
 moex_api = { path = "crates/moex_api" }
