@@ -8,7 +8,7 @@ chrono = { version = "0.4.41", features = ["serde"] }
 log = "0.4.26"
 redis = { version = "0.29.1", features = ["tokio-comp", "json"] }
 reqwest = { version = "0.12.15", features = ["json"] }
-serde = "1.0.218"
+serde = "1.0.219"
 serde_json = "1.0.139"
 
 # local
