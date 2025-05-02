@@ -8,7 +8,7 @@ chrono = { version = "0.4.41", features = ["serde"] }
 itertools = "0.14.0"
 log = "0.4.26"
 reqwest = { version = "0.12.15", features = ["json"] }
-serde = "1.0.218"
+serde = "1.0.219"
 serde_json = "1.0.139"
 
 # local
