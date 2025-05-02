@@ -6,7 +6,7 @@ edition.workspace = true
 [dependencies]
 chrono = { version = "0.4.40", features = ["serde"] }
 log = "0.4.26"
-reqwest = { version = "0.12.9", features = ["json"] }
+reqwest = { version = "0.12.15", features = ["json"] }
 serde = "1.0.218"
 quick-xml = { version = "0.37.2", features = ["serialize"] }
 
