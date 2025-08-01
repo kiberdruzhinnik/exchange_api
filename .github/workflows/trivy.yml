@@ -36,7 +36,7 @@ jobs:
           docker build --build-arg IMAGE_VERSION=${{ github.sha }} -t docker.io/library/exchange_api_trivy:${{ github.sha }} -f Dockerfile.trivy .
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a183b498b4d6366cf37
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4
         with:
           image-ref: "docker.io/library/exchange_api_trivy:${{ github.sha }}"
           format: "sarif"
