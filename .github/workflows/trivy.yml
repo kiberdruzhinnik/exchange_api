@@ -28,7 +28,7 @@ jobs:
     runs-on: "ubuntu-22.04"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build an image from Dockerfile
         run: |
@@ -36,7 +36,7 @@ jobs:
           docker build --build-arg IMAGE_VERSION=${{ github.sha }} -t docker.io/library/exchange_api_trivy:${{ github.sha }} -f Dockerfile.trivy .
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4
+        uses: aquasecurity/trivy-action@f9424c10c36e288d5fa79bd3dfd1aeb2d6eae808
         with:
           image-ref: "docker.io/library/exchange_api_trivy:${{ github.sha }}"
           format: "sarif"
