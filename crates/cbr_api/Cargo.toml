@@ -8,7 +8,7 @@ chrono = { version = "0.4.44", features = ["serde"] }
 log = "0.4.32"
 reqwest = { version = "0.13.4", features = ["json"] }
 serde = "1.0.219"
-quick-xml = { version = "0.41.0", features = ["serialize"] }
+quick-xml = { version = "0.42.0", features = ["serialize"] }
 
 # local
 history_model = { path = "../history_model" }
